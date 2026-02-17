@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Minecraft Seed Viewer</title>
+  <style>
+    body { font-family: Arial; text-align: center; background: #222; color: white; }
+    canvas { border: 2px solid white; margin-top: 10px; }
+    input, button { padding: 8px; margin: 5px; }
+  </style>
+</head>
+<body>
+
+<h1>Minecraft Seed Map Viewer</h1>
+
+<input id="seedInput" type="text" placeholder="Enter seed...">
+<button onclick="generate()">Generate Map</button>
+
+<br>
+<canvas id="map" width="600" height="600"></canvas>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/simplex-noise/2.4.0/simplex-noise.min.js"></script>
+
+<script>
+function generate() {
+  const seed = document.getElementById("seedInput").value || "0";
+  const simplex = new SimplexNoise(seed);
+
+  const canvas = document.getElementById("map");
+  const ctx = canvas.getContext("2d");
+
+  const scale = 100;
+  
+  for (let x = 0; x < canvas.width; x++) {
+    for (let y = 0; y < canvas.height; y++) {
+
+      let nx = x / scale;
+      let ny = y / scale;
+
+      let value = simplex.noise2D(nx, ny);
+
+      // Fake biome coloring
+      if (value < -0.3) ctx.fillStyle = "#0000aa"; // ocean
+      else if (value < 0) ctx.fillStyle = "#d9d592"; // beach
+      else if (value < 0.3) ctx.fillStyle = "#228b22"; // plains
+      else ctx.fillStyle = "#555555"; // mountains
+
+      ctx.fillRect(x, y, 1, 1);
+    }
+  }
+}
+</script>
+
+</body>
+</html>
