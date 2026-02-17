@@ -1,53 +1,171 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Minecraft Seed Viewer</title>
+  <title>Minecraft Java Seed Viewer</title>
   <style>
-    body { font-family: Arial; text-align: center; background: #222; color: white; }
-    canvas { border: 2px solid white; margin-top: 10px; }
-    input, button { padding: 8px; margin: 5px; }
+    body {
+      margin: 0;
+      background: #1e1e1e;
+      color: white;
+      font-family: Arial;
+      overflow: hidden;
+    }
+
+    #ui {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      background: #2a2a2a;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px black;
+      z-index: 10;
+    }
+
+    input, button, select {
+      padding: 6px;
+      margin: 4px 0;
+      width: 100%;
+      border-radius: 5px;
+      border: none;
+    }
+
+    button {
+      cursor: pointer;
+      background: #4CAF50;
+      color: white;
+    }
+
+    button:hover {
+      background: #45a049;
+    }
+
+    #coords {
+      margin-top: 8px;
+      font-size: 14px;
+      opacity: 0.8;
+    }
+
+    canvas {
+      display: block;
+    }
   </style>
 </head>
 <body>
 
-<h1>Minecraft Seed Map Viewer</h1>
+<div id="ui">
+  <h3>Minecraft Java Seed Viewer</h3>
+  <input id="seedInput" placeholder="Enter seed..." />
+  <select id="version">
+    <option value="1.20">1.20+</option>
+    <option value="1.21">1.21+</option>
+  </select>
+  <button onclick="generate()">Generate</button>
+  <div id="coords">X: 0 Z: 0</div>
+</div>
 
-<input id="seedInput" type="text" placeholder="Enter seed...">
-<button onclick="generate()">Generate Map</button>
-
-<br>
-<canvas id="map" width="600" height="600"></canvas>
+<canvas id="map"></canvas>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/simplex-noise/2.4.0/simplex-noise.min.js"></script>
 
 <script>
+const canvas = document.getElementById("map");
+const ctx = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let scale = 150;
+let offsetX = 0;
+let offsetY = 0;
+let simplex;
+
 function generate() {
   const seed = document.getElementById("seedInput").value || "0";
-  const simplex = new SimplexNoise(seed);
+  simplex = new SimplexNoise(seed);
+  draw();
+}
 
-  const canvas = document.getElementById("map");
-  const ctx = canvas.getContext("2d");
+function getBiomeColor(value) {
+  if (value < -0.35) return "#0b3d91";        // deep ocean
+  if (value < -0.2) return "#1565c0";         // ocean
+  if (value < -0.05) return "#d9d592";        // beach
+  if (value < 0.2) return "#3ba635";          // plains
+  if (value < 0.4) return "#2e7d32";          // forest
+  if (value < 0.6) return "#888888";          // hills
+  return "#ffffff";                           // mountains/snow
+}
 
-  const scale = 100;
-  
+function draw() {
+  if (!simplex) return;
+
+  const img = ctx.createImageData(canvas.width, canvas.height);
+
   for (let x = 0; x < canvas.width; x++) {
     for (let y = 0; y < canvas.height; y++) {
 
-      let nx = x / scale;
-      let ny = y / scale;
+      let worldX = (x + offsetX) / scale;
+      let worldY = (y + offsetY) / scale;
 
-      let value = simplex.noise2D(nx, ny);
+      let elevation = simplex.noise2D(worldX, worldY);
 
-      // Fake biome coloring
-      if (value < -0.3) ctx.fillStyle = "#0000aa"; // ocean
-      else if (value < 0) ctx.fillStyle = "#d9d592"; // beach
-      else if (value < 0.3) ctx.fillStyle = "#228b22"; // plains
-      else ctx.fillStyle = "#555555"; // mountains
+      let color = getBiomeColor(elevation);
+      let rgb = hexToRgb(color);
 
-      ctx.fillRect(x, y, 1, 1);
+      let i = (x + y * canvas.width) * 4;
+      img.data[i] = rgb.r;
+      img.data[i+1] = rgb.g;
+      img.data[i+2] = rgb.b;
+      img.data[i+3] = 255;
     }
   }
+
+  ctx.putImageData(img, 0, 0);
 }
+
+function hexToRgb(hex) {
+  const bigint = parseInt(hex.slice(1), 16);
+  return {
+    r: (bigint >> 16) & 255,
+    g: (bigint >> 8) & 255,
+    b: bigint & 255
+  };
+}
+
+// PAN
+let dragging = false;
+let lastX, lastY;
+
+canvas.addEventListener("mousedown", e => {
+  dragging = true;
+  lastX = e.clientX;
+  lastY = e.clientY;
+});
+
+canvas.addEventListener("mouseup", () => dragging = false);
+
+canvas.addEventListener("mousemove", e => {
+  if (dragging) {
+    offsetX -= (e.clientX - lastX);
+    offsetY -= (e.clientY - lastY);
+    lastX = e.clientX;
+    lastY = e.clientY;
+    draw();
+  }
+
+  let worldX = Math.floor((e.clientX + offsetX) / scale * 16);
+  let worldZ = Math.floor((e.clientY + offsetY) / scale * 16);
+  document.getElementById("coords").innerText = `X: ${worldX} Z: ${worldZ}`;
+});
+
+// ZOOM
+canvas.addEventListener("wheel", e => {
+  e.preventDefault();
+  scale *= e.deltaY > 0 ? 1.1 : 0.9;
+  draw();
+});
+
+generate();
 </script>
 
 </body>
